@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>App Tareas · Flujo UI, ViewModel y UiState</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div><span class="material-icons-round">school</span><strong>PMDM · 2.º DAM</strong></div>
+  <div class="top-actions"><span class="live-dot"></span> Simulador interactivo <button id="themeBtn" class="icon-btn" aria-label="Cambiar tema"><span class="material-icons-round">dark_mode</span></button></div>
+</header>
+<main>
+<section class="intro">
+  <p class="eyebrow">JETPACK COMPOSE · KOTLIN</p>
+  <h1>¿Cómo viajan los datos en <span>App Tareas</span>?</h1>
+  <p>Interactúa con la aplicación y observa cómo un evento de la UI llega al ViewModel, modifica el <code>TareaUIState</code> y vuelve a la pantalla mediante <code>StateFlow</code>.</p>
+</section>
+
+<section class="workspace">
+ <div class="phone-column">
+  <div class="section-heading"><span class="step-number">1</span><div><h2>La aplicación</h2><p>Prueba a escribir, seleccionar y añadir tareas.</p></div></div>
+  <div class="phone">
+   <div class="status"><span>6:34 ◈</span><span>▮▮▮ ◉ ▰</span></div>
+   <div class="phone-screen">
+    <h2>App Tareas</h2><h3>Inserta nueva tarea</h3>
+    <label class="outlined-field focused"><span>Título</span><input id="titleInput" placeholder=" " autocomplete="off"></label>
+    <label class="outlined-field"><textarea id="descInput" placeholder="Descripción"></textarea></label>
+    <h3 class="module-title">Módulo asociado</h3>
+    <div class="radio-row" id="moduleRadios">
+      <label><input type="radio" name="module" value="AD" checked><span class="radio"></span>AD</label>
+      <label><input type="radio" name="module" value="DI"><span class="radio"></span>DI</label>
+      <label><input type="radio" name="module" value="PMDM"><span class="radio"></span>PMDM</label>
+    </div>
+    <div class="urgent-row"><span>Urgente</span><label class="switch"><input type="checkbox" id="urgentInput"><span class="slider"></span></label></div>
+    <button id="insertBtn" class="insert-btn">Insertar</button>
+    <div class="phone-divider"></div>
+    <div id="taskList" class="task-list">
+      <article class="task"><small>PMDM</small><div><b>Ejercicio 1</b><p>Implementar el ejercicio 1</p></div><span class="urgent-mark">⌃</span></article>
+      <article class="task"><small>DI</small><div><b>Login</b><p>Acabar pantalla de Login</p></div></article>
+      <article class="task"><small>AD</small><div><b>Tarea Json</b><p>Realizar la tarea de json</p></div><span class="urgent-mark">⌃</span></article>
+    </div>
+   </div>
+   <div class="homebar"></div>
+  </div>
+  <div class="phone-note"><span class="material-icons-round">touch_app</span> Los controles del móvil son interactivos. Cada cambio genera una traza.</div>
+ </div>
+
+ <div class="flow-column">
+  <div class="section-heading"><span class="step-number">2</span><div><h2>Flujo de datos en tiempo real</h2><p>La acción que realices iluminará los pasos correspondientes.</p></div></div>
+  <div class="flow-card">
+   <div class="flow-legend"><span><i class="dot ui"></i> UI / Compose</span><span><i class="dot vm"></i> ViewModel</span><span><i class="dot state"></i> UiState / StateFlow</span></div>
+   <div class="flow-diagram" id="flowDiagram">
+    <div class="flow-node ui" data-node="ui"><span class="node-tag">1 · UI</span><b>Evento del usuario</b><code>onValueChange(it)</code><small>El usuario escribe o pulsa.</small></div>
+    <div class="arrow"><span>↓ evento / dato</span></div>
+    <div class="flow-node vm" data-node="vm"><span class="node-tag">2 · VIEWMODEL</span><b>Método actualizar…()</b><code>actualizarTitulo(it)</code><small>Recibe el nuevo valor.</small></div>
+    <div class="arrow"><span>↓ asignación</span></div>
+    <div class="flow-node vm" data-node="local"><span class="node-tag">3 · VIEWMODEL</span><b>Propiedad local</b><code>titulo = titulo_ui</code><small>Actualiza la variable interna.</small></div>
+    <div class="arrow"><span>↓ modifica la tarea</span></div>
+    <div class="flow-node state" data-node="copy"><span class="node-tag">4 · MODELO</span><b>Copia de Tarea</b><code>tarea.copy()</code><small>Se cambia el campo correspondiente.</small></div>
+    <div class="arrow"><span>↓ publica un nuevo estado</span></div>
+    <div class="flow-node state" data-node="state"><span class="node-tag">5 · UISTATE</span><b>MutableStateFlow.update</b><code>estadoActual.copy(tarea = tarea)</code><small>Se emite el nuevo TareaUIState.</small></div>
+    <div class="arrow"><span>↓ StateFlow emite</span></div>
+    <div class="flow-node ui" data-node="collect"><span class="node-tag">6 · COMPOSE</span><b>collectAsState()</b><code>val uIState by …</code><small>Compose observa el nuevo valor.</small></div>
+    <div class="arrow"><span>↓ recomposición</span></div>
+    <div class="flow-node ui" data-node="render"><span class="node-tag">7 · UI</span><b>La pantalla se actualiza</b><code>value = uIState.tarea.titulo</code><small>El campo muestra el valor del UiState.</small></div>
+   </div>
+   <div class="flow-controls"><button id="replayBtn" class="secondary-btn"><span class="material-icons-round">replay</span> Repetir flujo</button><button id="clearBtn" class="text-btn">Limpiar traza</button></div>
+  </div>
+
+  <div class="section-heading subhead"><span class="step-number">3</span><div><h2>¿Qué está pasando ahora?</h2><p>Datos y código asociados al último evento.</p></div></div>
+  <div class="inspector">
+   <div class="inspector-head"><strong id="eventTitle">Esperando una acción…</strong><span class="status-pill" id="eventStatus">EN ESPERA</span></div>
+   <p id="eventDescription">Modifica el título, la descripción, el módulo o la urgencia en la aplicación.</p>
+   <div class="data-grid">
+    <div><small>tarea.titulo</small><strong id="vTitle">""</strong></div>
+    <div><small>tarea.descripcion</small><strong id="vDesc">""</strong></div>
+    <div><small>tarea.modulo</small><strong id="vModule">"AD"</strong></div>
+    <div><small>tarea.urgente</small><strong id="vUrgent">false</strong></div>
+    <div><small>listaTareas.size</small><strong id="vCount">3</strong></div>
+   </div>
+   <div class="code-label">Fragmento Kotlin implicado</div>
+   <pre><code id="codeSnippet">val uIState by tareaViewModel.tareaUIState.collectAsState()</code></pre>
+  </div>
+  <div class="trace-card"><div class="trace-title"><strong>Registro de eventos</strong><button id="clearLog" class="text-btn">Borrar</button></div><ol id="logList"><li class="muted">Todavía no hay eventos. Interactúa con la app.</li></ol></div>
+ </div>
+</section>
+
+<section class="explain">
+ <div class="section-heading"><span class="step-number">4</span><div><h2>Entiende las dos direcciones</h2><p>La UI envía eventos; el UiState devuelve los datos que se representan.</p></div></div>
+ <div class="two-way">
+  <article><span class="material-icons-round">south</span><h3>UI → ViewModel</h3><p>Los callbacks reciben el dato nuevo y llaman a un método del ViewModel. Ejemplo:</p><pre><code>onValueChange = {
+    tareaViewModel.actualizarTitulo(it)
+}</code></pre></article>
+  <article><span class="material-icons-round">north</span><h3>ViewModel → UI</h3><p>El ViewModel publica un nuevo estado. Compose lo recoge y vuelve a dibujar los elementos que leen ese estado:</p><pre><code>val uIState by
+    tareaViewModel.tareaUIState
+        .collectAsState()
+
+value = uIState.tarea.titulo</code></pre></article>
+ </div>
+ <div class="note"><span class="material-icons-round">lightbulb</span><div><b>Ojo: en este código hay dos estados locales adicionales.</b><p><code>eleccModulo</code> se guarda con <code>remember</code> en la UI para marcar el RadioButton seleccionado. Además, el ViewModel mantiene <code>titulo</code>, <code>descripcion</code>, <code>modulo</code> y <code>urgente</code> con <code>mutableStateOf</code>. Pero los campos y el Switch se pintan leyendo <code>uIState.tarea</code>. El simulador representa ese comportamiento concreto.</p></div></div>
+ <details><summary>Ver el método insertarTarea() explicado</summary><div class="insert-explain"><pre><code>_tareaUIState.update { estadoActual ->
+    estadoActual.copy(
+        tarea = Tarea(),
+        listaTareas = estadoActual.listaTareas + estadoActual.tarea
+    )
+}</code></pre><p>Al pulsar Insertar, el ViewModel añade la tarea que estaba en edición a <code>listaTareas</code> y sustituye <code>tarea</code> por una tarea vacía. El flujo emite un estado nuevo con la lista ampliada y el formulario reiniciado.</p></div></details>
+</section>
+<footer>Recurso didáctico · Jetpack Compose · ViewModel · StateFlow · UiState</footer>
+</main>
+<script src="app.js"></script>
+</body></html>
