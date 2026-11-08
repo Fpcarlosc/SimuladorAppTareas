@@ -1,39 +1,537 @@
-const $=id=>document.getElementById(id);
-const state={title:"",description:"",module:"AD",urgent:false,tasks:[
- {module:"PMDM",title:"Ejercicio 1",description:"Implementar el ejercicio 1",urgent:true},
- {module:"DI",title:"Login",description:"Acabar pantalla de Login",urgent:false},
- {module:"AD",title:"Tarea Json",description:"Realizar la tarea de json",urgent:true}
-]};
-let lastFlow=[],lastEvent=null;
-const nodeOrder=["ui","vm","local","copy","state","collect","render"];
-const snippets={
- title:`onValueChange = {\\n    tareaViewModel.actualizarTitulo(it)\\n}\\n\\nfun actualizarTitulo(titulo_ui: String) {\\n    titulo = titulo_ui\\n    val tarea = _tareaUIState.value.tarea.copy()\\n    tarea.titulo = titulo\\n    _tareaUIState.update { estadoActual ->\\n        estadoActual.copy(tarea = tarea)\\n    }\\n}`,
- description:`onValueChange = {\\n    tareaViewModel.actualizarDescripcion(it)\\n}\\n\\nfun actualizarDescripcion(desc_ui: String) {\\n    descripcion = desc_ui\\n    val tarea = _tareaUIState.value.tarea.copy()\\n    tarea.descripcion = descripcion\\n    _tareaUIState.update { estadoActual ->\\n        estadoActual.copy(tarea = tarea)\\n    }\\n}`,
- module:`onClick = {\\n    eleccModulo = modulo\\n    tareaViewModel.actualizarModulo(modulo)\\n}\\n\\nfun actualizarModulo(modulo_ui: String) {\\n    modulo = modulo_ui\\n    val tarea = _tareaUIState.value.tarea.copy()\\n    tarea.modulo = modulo\\n    _tareaUIState.update { estadoActual ->\\n        estadoActual.copy(tarea = tarea)\\n    }\\n}`,
- urgent:`onCheckedChange = {\\n    tareaViewModel.actualizarUrgente(it)\\n}\\n\\nfun actualizarUrgente(urgente_ui: Boolean) {\\n    urgente = urgente_ui\\n    val tarea = _tareaUIState.value.tarea.copy()\\n    tarea.urgente = urgente\\n    _tareaUIState.update { estadoActual ->\\n        estadoActual.copy(tarea = tarea)\\n    }\\n}`,
- insert:`onClick = { tareaViewModel.insertarTarea() }\\n\\n_tareaUIState.update { estadoActual ->\\n    estadoActual.copy(\\n        tarea = Tarea(),\\n        listaTareas = estadoActual.listaTareas + estadoActual.tarea\\n    )\\n}`
+
+const $ = id => document.getElementById(id);
+
+// --------------------------------------------------
+// 1. ESTADO INICIAL DE LA APLICACIÓN
+// --------------------------------------------------
+
+const state = {
+    title: "",
+    description: "",
+    module: "AD",
+    urgent: false,
+    tasks: [
+        {
+            module: "PMDM",
+            title: "Ejercicio 1",
+            description: "Implementar el ejercicio 1",
+            urgent: true
+        },
+        {
+            module: "DI",
+            title: "Login",
+            description: "Acabar pantalla de Login",
+            urgent: false
+        },
+        {
+            module: "AD",
+            title: "Tarea Json",
+            description: "Realizar la tarea de json",
+            urgent: true
+        }
+    ]
 };
-const descriptions={
- title:["Escribir título","La UI entrega el texto nuevo mediante onValueChange(it).","actualizarTitulo(titulo_ui)"],
- description:["Escribir descripción","El callback onValueChange envía la descripción al ViewModel.","actualizarDescripcion(desc_ui)"],
- module:["Seleccionar módulo","El RadioButton actualiza eleccModulo (remember) y llama al ViewModel.","actualizarModulo(modulo_ui)"],
- urgent:["Cambiar urgencia","Switch envía el booleano nuevo con onCheckedChange(it).","actualizarUrgente(urgente_ui)"],
- insert:["Insertar tarea","El botón no envía un campo: solicita al ViewModel guardar la tarea que ya está en UiState.","insertarTarea()"]
+
+let lastEvent = null;
+let animationId = 0;
+
+const nodeOrder = [
+    "ui", "vm", "local", "copy",
+    "state", "collect", "render"
+];
+
+// --------------------------------------------------
+// 2. CONFIGURACIÓN DE CADA FLUJO
+// --------------------------------------------------
+
+const flows = {
+
+    title: {
+        title: "Flujo: actualización del título",
+        description: "El usuario escribe en el campo Título. El ViewModel recibe el texto y publica una nueva tarea.",
+        method: "actualizarTitulo()",
+
+        nodes: [
+            ["1 · UI", "Evento del usuario", "onValueChange(it)", "El usuario escribe el título."],
+            ["2 · VIEWMODEL", "Método actualizarTitulo()", "actualizarTitulo(it)", "Recibe el nuevo texto."],
+            ["3 · VIEWMODEL", "Propiedad local", "titulo = titulo_ui", "Actualiza la variable interna."],
+            ["4 · MODELO", "Copia de Tarea", "tarea = tarea.copy()", "Se modifica tarea.titulo."],
+            ["5 · UISTATE", "MutableStateFlow.update", "estadoActual.copy(tarea = tarea)", "Publica el nuevo TareaUIState."],
+            ["6 · COMPOSE", "collectAsState()", "val uIState by ...", "Compose recibe el nuevo estado."],
+            ["7 · UI", "La pantalla se actualiza", "value = uIState.tarea.titulo", "El campo muestra el nuevo título."]
+        ],
+
+        code: `// UI
+OutlinedTextField(
+    value = uIState.tarea.titulo,
+    onValueChange = {
+        tareaViewModel.actualizarTitulo(it)
+    }
+)
+
+// VIEWMODEL
+fun actualizarTitulo(titulo_ui: String) {
+    titulo = titulo_ui
+
+    val tarea = _tareaUIState.value.tarea.copy()
+    tarea.titulo = titulo
+
+    _tareaUIState.update { estadoActual ->
+        estadoActual.copy(tarea = tarea)
+    }
+}`
+    },
+
+    description: {
+        title: "Flujo: actualización de la descripción",
+        description: "El usuario escribe en Descripción. El ViewModel actualiza el campo descripcion de la tarea.",
+        method: "actualizarDescripcion()",
+
+        nodes: [
+            ["1 · UI", "Evento del usuario", "onValueChange(it)", "El usuario escribe la descripción."],
+            ["2 · VIEWMODEL", "Método actualizarDescripcion()", "actualizarDescripcion(it)", "Recibe la nueva descripción."],
+            ["3 · VIEWMODEL", "Propiedad local", "descripcion = desc_ui", "Actualiza la variable interna."],
+            ["4 · MODELO", "Copia de Tarea", "tarea = tarea.copy()", "Se modifica tarea.descripcion."],
+            ["5 · UISTATE", "MutableStateFlow.update", "estadoActual.copy(tarea = tarea)", "Publica el nuevo TareaUIState."],
+            ["6 · COMPOSE", "collectAsState()", "val uIState by ...", "Compose recibe el nuevo estado."],
+            ["7 · UI", "La pantalla se actualiza", "value = uIState.tarea.descripcion", "El campo muestra la descripción."]
+        ],
+
+        code: `// UI
+OutlinedTextField(
+    value = uIState.tarea.descripcion,
+    onValueChange = {
+        tareaViewModel.actualizarDescripcion(it)
+    }
+)
+
+// VIEWMODEL
+fun actualizarDescripcion(desc_ui: String) {
+    descripcion = desc_ui
+
+    val tarea = _tareaUIState.value.tarea.copy()
+    tarea.descripcion = descripcion
+
+    _tareaUIState.update { estadoActual ->
+        estadoActual.copy(tarea = tarea)
+    }
+}`
+    },
+
+    module: {
+        title: "Flujo: selección del módulo",
+        description: "El RadioButton modifica eleccModulo en Compose y llama a actualizarModulo() en el ViewModel.",
+        method: "actualizarModulo()",
+
+        nodes: [
+            ["1 · UI", "RadioButton", "onClick { ... }", "El usuario selecciona AD, DI o PMDM."],
+            ["2 · COMPOSE", "Estado local remember", "eleccModulo = modulo", "Se actualiza el RadioButton seleccionado."],
+            ["3 · VIEWMODEL", "Método actualizarModulo()", "actualizarModulo(modulo)", "Recibe el módulo elegido."],
+            ["4 · VIEWMODEL", "Propiedad local", "modulo = modulo_ui", "Actualiza la variable interna."],
+            ["5 · MODELO / UISTATE", "Copia de Tarea y update", "tarea.modulo = modulo", "Publica la tarea con el nuevo módulo."],
+            ["6 · COMPOSE", "collectAsState()", "val uIState by ...", "Compose recibe el nuevo UiState."],
+            ["7 · UI", "RadioButton y modelo", "eleccModulo / uIState.tarea.modulo", "Se refleja la selección y el módulo guardado."]
+        ],
+
+        code: `// UI
+var eleccModulo by remember {
+    mutableStateOf("AD")
+}
+
+onClick = {
+    eleccModulo = modulo
+    tareaViewModel.actualizarModulo(modulo)
+}
+
+// VIEWMODEL
+fun actualizarModulo(modulo_ui: String) {
+    modulo = modulo_ui
+
+    val tarea = _tareaUIState.value.tarea.copy()
+    tarea.modulo = modulo
+
+    _tareaUIState.update { estadoActual ->
+        estadoActual.copy(tarea = tarea)
+    }
+}`
+    },
+
+    urgent: {
+        title: "Flujo: actualización de la urgencia",
+        description: "El usuario activa o desactiva el Switch. El ViewModel recibe un valor Boolean.",
+        method: "actualizarUrgente()",
+
+        nodes: [
+            ["1 · UI", "Switch", "onCheckedChange(it)", "El usuario cambia el interruptor."],
+            ["2 · VIEWMODEL", "Método actualizarUrgente()", "actualizarUrgente(it)", "Recibe true o false."],
+            ["3 · VIEWMODEL", "Propiedad local", "urgente = urgente_ui", "Actualiza la variable interna."],
+            ["4 · MODELO", "Copia de Tarea", "tarea = tarea.copy()", "Se modifica tarea.urgente."],
+            ["5 · UISTATE", "MutableStateFlow.update", "estadoActual.copy(tarea = tarea)", "Publica el nuevo TareaUIState."],
+            ["6 · COMPOSE", "collectAsState()", "val uIState by ...", "Compose recibe el nuevo estado."],
+            ["7 · UI", "Switch actualizado", "checked = uIState.tarea.urgente", "El interruptor refleja el valor."]
+        ],
+
+        code: `// UI
+Switch(
+    checked = uIState.tarea.urgente,
+    onCheckedChange = {
+        tareaViewModel.actualizarUrgente(it)
+    }
+)
+
+// VIEWMODEL
+fun actualizarUrgente(urgente_ui: Boolean) {
+    urgente = urgente_ui
+
+    val tarea = _tareaUIState.value.tarea.copy()
+    tarea.urgente = urgente
+
+    _tareaUIState.update { estadoActual ->
+        estadoActual.copy(tarea = tarea)
+    }
+}`
+    },
+
+    insert: {
+        title: "Flujo: insertar una tarea",
+        description: "El botón solicita al ViewModel que añada la tarea actual a la lista y cree una tarea vacía.",
+        method: "insertarTarea()",
+
+        nodes: [
+            ["1 · UI", "Botón Insertar", "onClick { insertarTarea() }", "El usuario pulsa el botón."],
+            ["2 · VIEWMODEL", "Método insertarTarea()", "insertarTarea()", "El ViewModel recibe la petición."],
+            ["3 · UISTATE", "Estado actual", "estadoActual.tarea", "Recupera la tarea que se está editando."],
+            ["4 · MODELO", "Añadir a la lista", "listaTareas + estadoActual.tarea", "Se incorpora la tarea a la lista."],
+            ["5 · UISTATE", "Crear tarea vacía", "tarea = Tarea()", "El formulario vuelve a su estado inicial."],
+            ["6 · COMPOSE", "collectAsState()", "val uIState by ...", "Compose recibe la lista actualizada."],
+            ["7 · UI", "Recomposición", "items(uIState.listaTareas)", "Aparece la nueva tarea y se limpia el formulario."]
+        ],
+
+        code: `// UI
+Button(
+    onClick = {
+        tareaViewModel.insertarTarea()
+    }
+)
+
+// VIEWMODEL
+fun insertarTarea() {
+    _tareaUIState.update { estadoActual ->
+        estadoActual.copy(
+            tarea = Tarea(),
+            listaTareas = estadoActual.listaTareas +
+                estadoActual.tarea
+        )
+    }
+}`
+    }
 };
-function renderTasks(){ $("taskList").innerHTML=state.tasks.map(t=>`<article class="task"><small>${esc(t.module)}</small><div><b>${esc(t.title)}</b><p>${esc(t.description)}</p></div>${t.urgent?'<span class="urgent-mark">⌃</span>':''}</article>`).join("");}
-function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
-function renderInspector(){ $("vTitle").textContent=JSON.stringify(state.title);$("vDesc").textContent=JSON.stringify(state.description);$("vModule").textContent=JSON.stringify(state.module);$("vUrgent").textContent=String(state.urgent);$("vCount").textContent=state.tasks.length;}
-function log(msg){const ol=$("logList");if(ol.querySelector(".muted"))ol.innerHTML="";const li=document.createElement("li");li.textContent=msg;ol.prepend(li);}
-function activate(nodes){document.querySelectorAll(".flow-node").forEach(n=>n.classList.toggle("active",nodes.includes(n.dataset.node)));}
-async function playFlow(eventKey){lastEvent=eventKey;lastFlow=nodeOrder.slice();const d=descriptions[eventKey];$("eventTitle").textContent=d[0];$("eventDescription").textContent=d[1]+" Método: "+d[2];$("eventStatus").textContent="FLUJO ACTIVO";$("codeSnippet").textContent=snippets[eventKey];activate([]);for(let i=0;i<nodeOrder.length;i++){activate(nodeOrder.slice(0,i+1));await new Promise(r=>setTimeout(r,240));} $("eventStatus").textContent="ESTADO EMITIDO";log(`${d[0]} → ${d[2]} → StateFlow emite → Compose recompone`);}
-function updateField(key,value){state[key]=value;const map={title:"title",description:"description",module:"module",urgent:"urgent"};renderInspector();playFlow(map[key]);}
-$("titleInput").addEventListener("input",e=>{state.title=e.target.value;updateField("title",e.target.value);});
-$("descInput").addEventListener("input",e=>{state.description=e.target.value;updateField("description",e.target.value);});
-document.querySelectorAll('input[name="module"]').forEach(r=>r.addEventListener("change",e=>{state.module=e.target.value;updateField("module",e.target.value);}));
-$("urgentInput").addEventListener("change",e=>{state.urgent=e.target.checked;updateField("urgent",e.target.checked);});
-$("insertBtn").addEventListener("click",()=>{if(!state.title.trim()&&!state.description.trim()){ $("eventTitle").textContent="No hay tarea que insertar";$("eventDescription").textContent="Escribe al menos un título o una descripción para observar la inserción.";return;}const added={module:state.module,title:state.title,description:state.description,urgent:state.urgent};state.tasks.unshift(added);state.title="";state.description="";state.module="AD";state.urgent=false;$("titleInput").value="";$("descInput").value="";$("urgentInput").checked=false;document.querySelector('input[name="module"][value="AD"]').checked=true;renderTasks();renderInspector();playFlow("insert");log(`Insertada «${added.title||"(sin título)"}» en listaTareas. La tarea de edición vuelve a Tarea().`);$("titleInput").focus();});
-$("replayBtn").addEventListener("click",()=>{if(lastEvent)playFlow(lastEvent);});
-$("clearBtn").addEventListener("click",()=>{activate([]);$("eventStatus").textContent="EN ESPERA";});
-$("clearLog").addEventListener("click",()=>{$("logList").innerHTML='<li class="muted">Registro borrado.</li>';});
-$("themeBtn").addEventListener("click",()=>document.body.classList.toggle("dark"));
+
+// --------------------------------------------------
+// 3. ACTUALIZAR EL DIAGRAMA
+// --------------------------------------------------
+
+function renderFlow(eventKey) {
+
+    const flow = flows[eventKey];
+
+    if (!flow) return;
+
+    lastEvent = eventKey;
+    const currentAnimation = ++animationId;
+
+    $("eventTitle").textContent = flow.title;
+    $("eventDescription").textContent = flow.description;
+    $("eventStatus").textContent = "FLUJO ACTIVO";
+
+    $("codeSnippet").textContent = flow.code;
+
+    const diagram = $("flowDiagram");
+
+    const nodes = diagram.querySelectorAll(".flow-node");
+    const arrows = diagram.querySelectorAll(".arrow");
+
+    // Cambiar el contenido de los siete nodos
+    nodes.forEach((node, index) => {
+
+        const data = flow.nodes[index];
+
+        if (!data) return;
+
+        node.querySelector(".node-tag").textContent = data[0];
+        node.querySelector("b").textContent = data[1];
+        node.querySelector("code").textContent = data[2];
+        node.querySelector("small").textContent = data[3];
+
+        node.classList.remove("active");
+    });
+
+    // Personalizar las flechas según el flujo
+    const arrowTexts = [
+        "↓ evento / dato",
+        "↓ asignación",
+        "↓ modifica la tarea",
+        "↓ publica un nuevo estado",
+        "↓ StateFlow emite",
+        "↓ recomposición"
+    ];
+
+    arrows.forEach((arrow, index) => {
+        if (arrowTexts[index]) {
+            arrow.querySelector("span").textContent = arrowTexts[index];
+        }
+    });
+
+    // Animar los nodos progresivamente
+    let index = 0;
+
+    function activateNext() {
+
+        if (currentAnimation !== animationId) return;
+
+        if (index < nodes.length) {
+
+            nodes[index].classList.add("active");
+
+            index++;
+
+            setTimeout(activateNext, 300);
+
+        } else {
+
+            $("eventStatus").textContent = "ESTADO EMITIDO";
+
+            log(
+                flow.title + " → " +
+                flow.method +
+                " → StateFlow emite → Compose recompone"
+            );
+        }
+    }
+
+    activateNext();
+}
+
+// --------------------------------------------------
+// 4. ACTUALIZAR EL INSPECTOR
+// --------------------------------------------------
+
+function renderInspector() {
+
+    $("vTitle").textContent = JSON.stringify(state.title);
+    $("vDesc").textContent = JSON.stringify(state.description);
+    $("vModule").textContent = JSON.stringify(state.module);
+    $("vUrgent").textContent = String(state.urgent);
+    $("vCount").textContent = state.tasks.length;
+}
+
+// --------------------------------------------------
+// 5. DIBUJAR LA LISTA DE TAREAS
+// --------------------------------------------------
+
+function esc(value) {
+
+    return String(value).replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+    }[char]));
+}
+
+function renderTasks() {
+
+    $("taskList").innerHTML = state.tasks.map(task => `
+        <article class="task">
+            <small>${esc(task.module)}</small>
+            <div>
+                <b>${esc(task.title)}</b>
+                <p>${esc(task.description)}</p>
+            </div>
+            ${task.urgent
+                ? '<span class="urgent-mark">⌃</span>'
+                : ''
+            }
+        </article>
+    `).join("");
+}
+
+// --------------------------------------------------
+// 6. REGISTRO DE EVENTOS
+// --------------------------------------------------
+
+function log(message) {
+
+    const list = $("logList");
+
+    if (list.querySelector(".muted")) {
+        list.innerHTML = "";
+    }
+
+    const item = document.createElement("li");
+
+    item.textContent = message;
+
+    list.prepend(item);
+}
+
+// --------------------------------------------------
+// 7. EVENTO: TÍTULO
+// --------------------------------------------------
+
+$("titleInput").addEventListener("input", event => {
+
+    state.title = event.target.value;
+
+    renderInspector();
+    renderFlow("title");
+});
+
+// --------------------------------------------------
+// 8. EVENTO: DESCRIPCIÓN
+// --------------------------------------------------
+
+$("descInput").addEventListener("input", event => {
+
+    state.description = event.target.value;
+
+    renderInspector();
+    renderFlow("description");
+});
+
+// --------------------------------------------------
+// 9. EVENTO: MÓDULO
+// --------------------------------------------------
+
+document.querySelectorAll('input[name="module"]').forEach(radio => {
+
+    radio.addEventListener("change", event => {
+
+        state.module = event.target.value;
+
+        renderInspector();
+        renderFlow("module");
+    });
+});
+
+// --------------------------------------------------
+// 10. EVENTO: URGENTE
+// --------------------------------------------------
+
+$("urgentInput").addEventListener("change", event => {
+
+    state.urgent = event.target.checked;
+
+    renderInspector();
+    renderFlow("urgent");
+});
+
+// --------------------------------------------------
+// 11. EVENTO: INSERTAR TAREA
+// --------------------------------------------------
+
+$("insertBtn").addEventListener("click", () => {
+
+    if (!state.title.trim() && !state.description.trim()) {
+
+        $("eventTitle").textContent = "No hay tarea que insertar";
+
+        $("eventDescription").textContent =
+            "Escribe al menos un título o una descripción para observar la inserción.";
+
+        $("eventStatus").textContent = "EN ESPERA";
+
+        return;
+    }
+
+    // Guardar una copia de la tarea actual
+    const added = {
+        module: state.module,
+        title: state.title,
+        description: state.description,
+        urgent: state.urgent
+    };
+
+    // Añadir la tarea a la lista
+    state.tasks.unshift(added);
+
+    // Reiniciar el formulario
+    state.title = "";
+    state.description = "";
+    state.module = "AD";
+    state.urgent = false;
+
+    $("titleInput").value = "";
+    $("descInput").value = "";
+    $("urgentInput").checked = false;
+
+    document.querySelector(
+        'input[name="module"][value="AD"]'
+    ).checked = true;
+
+    // Actualizar la pantalla
+    renderTasks();
+    renderInspector();
+
+    // Mostrar el flujo de inserción
+    renderFlow("insert");
+
+    log(
+        `Insertada «${added.title || "(sin título)"}» en listaTareas.`
+    );
+
+    $("titleInput").focus();
+});
+
+// --------------------------------------------------
+// 12. BOTÓN REPETIR FLUJO
+// --------------------------------------------------
+
+$("replayBtn").addEventListener("click", () => {
+
+    if (lastEvent) {
+        renderFlow(lastEvent);
+    }
+});
+
+// --------------------------------------------------
+// 13. LIMPIAR TRAZA
+// --------------------------------------------------
+
+$("clearBtn").addEventListener("click", () => {
+
+    animationId++;
+
+    document.querySelectorAll(".flow-node").forEach(node => {
+        node.classList.remove("active");
+    });
+
+    $("eventStatus").textContent = "EN ESPERA";
+});
+
+// --------------------------------------------------
+// 14. BORRAR REGISTRO
+// --------------------------------------------------
+
+$("clearLog").addEventListener("click", () => {
+
+    $("logList").innerHTML =
+        '<li class="muted">Registro borrado.</li>';
+});
+
+// --------------------------------------------------
+// 15. CAMBIAR TEMA
+// --------------------------------------------------
+
+$("themeBtn").addEventListener("click", () => {
+
+    document.body.classList.toggle("dark");
+});
+
+// --------------------------------------------------
+// 16. INICIALIZACIÓN
+// --------------------------------------------------
+
 renderInspector();
+renderTasks();

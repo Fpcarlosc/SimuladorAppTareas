@@ -103,7 +103,6 @@
 
 value = uIState.tarea.titulo</code></pre></article>
  </div>
- <div class="note"><span class="material-icons-round">lightbulb</span><div><b>Ojo: en este código hay dos estados locales adicionales.</b><p><code>eleccModulo</code> se guarda con <code>remember</code> en la UI para marcar el RadioButton seleccionado. Además, el ViewModel mantiene <code>titulo</code>, <code>descripcion</code>, <code>modulo</code> y <code>urgente</code> con <code>mutableStateOf</code>. Pero los campos y el Switch se pintan leyendo <code>uIState.tarea</code>. El simulador representa ese comportamiento concreto.</p></div></div>
  <details><summary>Ver el método insertarTarea() explicado</summary><div class="insert-explain"><pre><code>_tareaUIState.update { estadoActual ->
     estadoActual.copy(
         tarea = Tarea(),
@@ -111,7 +110,7 @@ value = uIState.tarea.titulo</code></pre></article>
     )
 }</code></pre><p>Al pulsar Insertar, el ViewModel añade la tarea que estaba en edición a <code>listaTareas</code> y sustituye <code>tarea</code> por una tarea vacía. El flujo emite un estado nuevo con la lista ampliada y el formulario reiniciado.</p></div></details>
 </section>
-<footer>Recurso didáctico · Jetpack Compose · ViewModel · StateFlow · UiState</footer>
+<footer>PMDM · Unidad 4 · Ejercicio Tareas</footer>
 </main>
 <script src="app.js"></script>
 </body></html>
